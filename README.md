@@ -8,8 +8,8 @@ the model itself.
 
 This free subset is MIT-licensed and genuinely useful on its own. The full kit
 (10 hooks, 6 skills, 3 stack templates, team onboarding guide) is
-**pay-what-you-want from $19** — link lands here within 24h. The live
-profit-and-loss journal is in [EXPERIMENT_LOG.md](EXPERIMENT_LOG.md).
+**pay-what-you-want from €19**: **[bgreiff.gumroad.com/l/claude-code-power-kit](https://bgreiff.gumroad.com/l/claude-code-power-kit)**.
+The live profit-and-loss journal is in [EXPERIMENT_LOG.md](EXPERIMENT_LOG.md).
 Star/watch the repo if you want to see how (whether) this ends.
 
 ## What's here
