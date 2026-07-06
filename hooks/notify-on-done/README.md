@@ -22,7 +22,8 @@ Notification transport, in order of preference:
   (`permission_prompt|idle_prompt|agent_needs_input`). Drop the matcher entirely to get
   every notification type, or remove the `Stop` block if per-turn pings annoy you and
   you only want "Claude is stuck" alerts.
-- Message text is sanitized (quotes/backslashes stripped, 200-char cap) before being
+- Message text is sanitized (quotes/backslashes stripped, 200-char cap — counted in
+  characters via jq, so umlauts/emoji at the boundary don't garble) before being
   embedded in the notifier command — no quoting injection from notification content.
 
 ## Failure modes
@@ -51,3 +52,6 @@ delivered for both Stop and Notification payloads; dry-run output verified; mess
 sanitization (embedded quotes/newlines) verified; fallback `terminalSequence` JSON
 branch verified by forcing the no-notifier path (schema-validated output).
 `notify-send` branch is config-only — verify on your Linux box.
+
+v1.0.1 regression test (passing): a 300-character multibyte (umlaut) message
+truncates to exactly 200 *characters* with no garbled byte at the boundary.

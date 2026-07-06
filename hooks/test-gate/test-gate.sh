@@ -19,7 +19,8 @@
 #      go test / cargo test
 #
 # Cost control: the suite only runs when the working tree differs from the
-# state at the last PASS (hash of HEAD + diff). An unchanged tree exits fast.
+# state at the last PASS (real tree snapshot via git write-tree, so edits to
+# still-untracked files count as changes too). An unchanged tree exits fast.
 
 INPUT=$(cat) || exit 0
 command -v jq >/dev/null 2>&1 || exit 0
@@ -61,16 +62,31 @@ fi
 # --- skip if the tree is unchanged since the last pass ------------------------
 STATE_DIR="${TMPDIR:-/tmp}/claude-test-gate"
 mkdir -p "$STATE_DIR" 2>/dev/null
-# Key the state file to this project so parallel projects don't collide.
-KEY=$(printf '%s' "$ROOT" | shasum -a 256 2>/dev/null | cut -c1-16)
+# shasum is missing on some minimal Linux images; sha256sum is the fallback.
+sha256() {
+  if command -v shasum >/dev/null 2>&1; then shasum -a 256; else sha256sum; fi
+}
+# Key the state file to project AND test command, so parallel projects don't
+# collide and a cached pass under one command can't suppress another.
+KEY=$(printf '%s\n%s' "$ROOT" "$TEST_CMD" | sha256 2>/dev/null | cut -c1-16)
 STATE_FILE="$STATE_DIR/pass-$KEY"
 
 tree_hash() {
   if git rev-parse --git-dir >/dev/null 2>&1; then
-    { git rev-parse HEAD 2>/dev/null; git status --porcelain 2>/dev/null; git diff 2>/dev/null; } \
-      | shasum -a 256 2>/dev/null | cut -d' ' -f1
+    # Snapshot the REAL tree (tracked + untracked, .gitignore respected) via a
+    # throwaway index — same plumbing as checkpoint.sh. Hashing porcelain text
+    # instead would miss edits to files that are still untracked.
+    local tmpidx tree
+    tmpidx=$(mktemp "${TMPDIR:-/tmp}/claude-test-gate-idx.XXXXXX") || { echo "no-idx-$(date +%s)"; return; }
+    if GIT_INDEX_FILE="$tmpidx" git read-tree HEAD 2>/dev/null \
+       || GIT_INDEX_FILE="$tmpidx" git read-tree --empty 2>/dev/null; then
+      GIT_INDEX_FILE="$tmpidx" git add -A . >/dev/null 2>&1
+      tree=$(GIT_INDEX_FILE="$tmpidx" git write-tree 2>/dev/null)
+    fi
+    rm -f "$tmpidx"
+    if [ -n "$tree" ]; then echo "$tree"; else echo "no-tree-$$-$(date +%s)"; fi  # plumbing failed: never skip
   else
-    echo "no-git-$(date +%s)"   # outside git: never skip
+    echo "no-git-$$-$(date +%s)"   # outside git: never skip ($$ so same-second stops can't collide)
   fi
 }
 CURRENT_HASH=$(tree_hash)

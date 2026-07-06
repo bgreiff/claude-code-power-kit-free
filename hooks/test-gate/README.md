@@ -32,10 +32,12 @@ A Stop-blocking hook is the sharpest tool in this pack. Three ways out:
 ## Cost control
 
 `Stop` fires at the end of *every* turn, including "explain this function" turns.
-Running a full suite each time would be miserable, so the hook hashes
-`HEAD + git status + git diff` and **skips the suite when the tree is unchanged since
-the last pass**. First green run caches; subsequent stops are near-instant until you
-actually change something. Outside a git repo it runs every time.
+Running a full suite each time would be miserable, so the hook snapshots the tree
+with `git write-tree` against a throwaway index — tracked *and* untracked content,
+`.gitignore` respected — and **skips the suite when the tree is unchanged since the
+last pass of the same test command**. First green run caches; subsequent stops are
+near-instant until you actually change something (editing a still-untracked file
+counts as a change). Outside a git repo it runs every time.
 
 Keep the suite the gate runs *fast* (unit tier). Point `.claude/test-gate.cmd` at a
 subset if your full suite takes minutes, and raise/lower the snippet's `timeout: 300`
@@ -57,3 +59,10 @@ with output tail; passing command → silent exit 0 and pass-hash cached;
 unchanged-tree skip verified; `stop_hook_active: true` → immediate exit 0;
 `.claude/test-gate.off` → immediate exit 0. Autodetect tested for the
 package.json branch; other detectors are config-only — verify in your setup.
+
+v1.0.1 regression tests (all passing): green run → edit a still-**untracked** file →
+gate re-runs and blocks on red (v1.0.0 hashed porcelain text and missed this class);
+a cached pass under command A no longer suppresses a failing command B (state is
+keyed by command); repo with no commits yet (empty-tree fallback) passes green, then
+blocks on an untracked edit; outside git, back-to-back stops both run (the
+never-skip sentinel includes the PID, so same-second stops can't collide).

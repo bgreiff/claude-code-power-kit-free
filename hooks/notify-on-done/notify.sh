@@ -32,8 +32,10 @@ TITLE="Claude Code — $PROJECT"
 
 # Sanitize for embedding in quoted strings (osascript/notify-send):
 # strip backslashes and double quotes, collapse newlines, cap length.
-CLEAN_MSG=$(printf '%s' "$MSG" | tr '\n' ' ' | tr -d '\\"' | cut -c1-200)
-CLEAN_TITLE=$(printf '%s' "$TITLE" | tr -d '\\"' | cut -c1-100)
+# jq slices by codepoint — `cut -c` counts bytes on BSD and can garble an
+# umlaut/emoji at the boundary. jq is already a hard dependency above.
+CLEAN_MSG=$(printf '%s' "$MSG" | tr '\n' ' ' | tr -d '\\"' | jq -Rr '.[0:200]')
+CLEAN_TITLE=$(printf '%s' "$TITLE" | tr -d '\\"' | jq -Rr '.[0:100]')
 
 if [ "${NOTIFY_DRY_RUN:-0}" = "1" ]; then
   printf 'DRY RUN notify: [%s] %s\n' "$CLEAN_TITLE" "$CLEAN_MSG" >&2
